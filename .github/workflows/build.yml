@@ -1,38 +1,59 @@
-name: build
+name: Build MrRexOS ISO
 
 on:
-  workflow_dispatch:
-concurrency: 
-  group: ubuntu-iso-build
-  cancel-in-progress: true
+  push:
+    branches:
+      - main
+
 jobs:
   build:
-    runs-on: ubuntu-22.04
-    strategy:
-      matrix:
-        descriptor: ["ubuntu-kinetic-2.2.0"]
-        include:
-          - descriptor: "ubuntu-kinetic-2.2.0"
-            config-file: regolith-2_2-kinetic-config.sh
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y xorriso wget
       - name: Build ISO
-        id: build-iso
         run: |
-          cd scripts
-          mv ${{ matrix.config-file }} default_config.sh
-          ./build.sh -
-          cd ..
-          mv scripts/Regolith.iso regolith-${{ matrix.descriptor }}.iso          
-          echo ::set-output name=TIMESTAMP::"$(date +%Y%m%d_%H%M%S)"
-      - name: Compress
-        run: |
-          md5sum regolith-${{ matrix.descriptor }}.iso > regolith-${{ matrix.descriptor }}.md5sum
-          zip regolith-${{ matrix.descriptor }}.zip regolith-${{ matrix.descriptor }}.iso regolith-${{ matrix.descriptor }}.md5sum
-      - uses: softprops/action-gh-release@v1
-        with:
-          body: See regolith-desktop.com for released files
-          name: ISO ${{ matrix.descriptor }} Build ${{ steps.build-iso.outputs.TIMESTAMP }}
-          tag_name: ${{ matrix.descriptor }}-${{ steps.build-iso.outputs.TIMESTAMP }}
-          files: |
-            regolith-${{ matrix.descriptor }}.zip
+          set -e
+          ISO_NAME="mrrexos-$(date +%Y%m%d)"
+          ISO_DIR="iso"
+          ISO_FILE="${ISO_DIR}/${ISO_NAME}.iso"
+          WORK_DIR="work"
+          ROOTFS_DIR="${WORK_DIR}/rootfs"
+          BOOTSTRAP_SCRIPT="bootstrap.sh"
+          CUSTOM_SCRIPT="custom.sh"
+          CUSTOM_FILES_DIR="custom"
+          CUSTOM_FILES_TAR="custom.tar.gz"
+          APT_PROXY="http://apt-cacher-ng:3142"
+          MIRROR_URL="http://ftp.us.debian.org/debian"
+          ARCH="amd64"
+          SUITE="bullseye"
+          EXTRA_PACKAGES="vim,htop,tree"
+          mkdir -p "${ISO_DIR}"
+          mkdir -p "${WORK_DIR}"
+          mkdir -p "${ROOTFS_DIR}"
+          wget "https://raw.githubusercontent.com/debuerreotype/docker-debian-artifacts/dist-${SUITE}/buster/${ARCH}/rootfs.tar.xz" -O "${WORK_DIR}/rootfs.tar.xz"
+          wget "https://raw.githubusercontent.com/debuerreotype/docker-debian-artifacts/dist-${SUITE}/buster/${ARCH}/bootstrap.sh" -O "${WORK_DIR}/${BOOTSTRAP_SCRIPT}"
+          chmod +x "${WORK_DIR}/${BOOTSTRAP_SCRIPT}"
+          sudo "${WORK_DIR}/${BOOTSTRAP_SCRIPT}" "${ROOTFS_DIR}" "${APT_PROXY}" "${MIRROR_URL}" "${SUITE}" "${ARCH}"
+          if [ -d "${CUSTOM_FILES_DIR}" ]; then
+            tar -czf "${WORK_DIR}/${CUSTOM_FILES_TAR}" -C "${CUSTOM_FILES_DIR}" .
+            sudo tar -xzf "${WORK_DIR}/${CUSTOM_FILES_TAR}" -C "${ROOTFS_DIR}"
+          fi
+          if [ -f "${CUSTOM_SCRIPT}" ]; then
+            sudo cp "${CUSTOM_SCRIPT}" "${ROOTFS_DIR}/root"
+            sudo chroot "${ROOTFS_DIR}" /bin/bash -c "chmod +x /root/${CUSTOM_SCRIPT} && /root/${CUSTOM_SCRIPT}"
+          fi
+          if [ -n "${EXTRA_PACKAGES}" ]; then
+            sudo chroot "${ROOTFS_DIR}" /bin/bash -c "apt-get update && apt-get install -y ${EXTRA_PACKAGES}"
+          fi
+          sudo xorriso -as mkisofs -iso-level 3 -full-iso9660-filenames -volid "${ISO_NAME}" -output "${ISO_FILE}" -graft-points \
+            "${ROOTFS_DIR}"=/ \
+            "${WORK_DIR}/${BOOTSTRAP_SCRIPT}"="/${BOOTSTRAP_SCRIPT}" \
+            "${WORK_DIR}/${CUSTOM_FILES_TAR}"="/${CUSTOM_FILES_TAR}" \
+            "${CUSTOM_SCRIPT}"="/root/${CUSTOM_SCRIPT}"
+          sudo rm -rf "${WORK_DIR}"
+          echo "ISO created: ${ISO_FILE}"
+        env:
+          APT_CACHER_NG: "http://apt-cacher-ng:3142"
