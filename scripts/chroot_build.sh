@@ -1,4 +1,5 @@
 #!/bin/bash
+# Rephrased code for building Ubuntu from scratch
 
 set -e                  # exit on error
 set -o pipefail         # exit on pipeline error
@@ -7,7 +8,7 @@ set -u                  # treat unset variable as error
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
-CMD=(setup_host install_pkg finish_up)
+COMMANDS=(setup_host install_pkg finish_up)
 
 function help() {
     # if $1 is set, use $1 as headline message in help()
@@ -18,7 +19,7 @@ function help() {
         echo -e $1
         echo
     fi
-    echo -e "Supported commands : ${CMD[*]}"
+    echo -e "Supported commands : ${COMMANDS[*]}"
     echo -e
     echo -e "Syntax: $0 [start_cmd] [-] [end_cmd]"
     echo -e "\trun from start_cmd to end_end"
@@ -33,8 +34,8 @@ function help() {
 function find_index() {
     local ret;
     local i;
-    for ((i=0; i<${#CMD[*]}; i++)); do
-        if [ "${CMD[i]}" == "$1" ]; then
+    for ((i=0; i<${#COMMANDS[*]}; i++)); do
+        if [ "${COMMANDS[i]}" == "$1" ]; then
             index=$i;
             return;
         fi
@@ -178,7 +179,7 @@ if [[ $# == 0 || $# > 3 ]]; then help; fi
 # loop through args
 dash_flag=false
 start_index=0
-end_index=${#CMD[*]}
+end_index=${#COMMANDS[*]}
 for ii in "$@";
 do
     if [[ $ii == "-" ]]; then
@@ -198,8 +199,7 @@ fi
 
 # loop through the commands
 for ((ii=$start_index; ii<$end_index; ii++)); do
-    ${CMD[ii]}
+    ${COMMANDS[ii]}
 done
 
 echo "$0 - Initial build is done!"
-
