@@ -91,22 +91,6 @@ function customize_image() {
         gnome-font-viewer \
         gnome-power-manager \
         gnome-screenshot \
-        i3xrocks-app-launcher \
-        i3xrocks-battery \
-        i3xrocks-bluetooth \
-        i3xrocks-focused-window-name \
-        i3xrocks-info \
-        i3xrocks-memory \
-        i3xrocks-net-traffic \
-        i3xrocks-next-workspace \
-        i3xrocks-rofication \
-        i3xrocks-time \
-        i3xrocks-volume \
-        kerneloops \
-        language-pack-en \
-        language-pack-en-base \
-        language-pack-gnome-en \
-        language-pack-gnome-en-base \
         less \
         libnotify-bin \
         memtest86+ \
