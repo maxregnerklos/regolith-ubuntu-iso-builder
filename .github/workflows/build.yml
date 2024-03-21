@@ -10,10 +10,10 @@ jobs:
     runs-on: ubuntu-22.04
     strategy:
       matrix:
-        descriptor: ["ubuntu-kinetic-2.2.0"]
+        descriptor: ["ubuntu-mantic-2.2.0"]
         include:
-          - descriptor: "ubuntu-kinetic-2.2.0"
-            config-file: regolith-2_2-kinetic-config.sh
+          - descriptor: "ubuntu-mantic-2.2.0"
+            config-file: regolith-2_2-mantic-config.sh
     steps:
       - uses: actions/checkout@v3
       - name: Build ISO
