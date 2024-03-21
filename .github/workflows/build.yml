@@ -25,26 +25,22 @@ jobs:
           cd ..
           mv scripts/Regolith.iso regolith-${{ matrix.descriptor }}.iso          
           echo ::set-output name=TIMESTAMP::"$(date +%Y%m%d_%H%M%S)"
+      compress:
+    name: Compress and Release
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        descriptor: [ubuntu, debian]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Download ISO artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: regolith-${{ matrix.descriptor }}.iso
       - name: Compress files
         run: |
           md5sum regolith-${{ matrix.descriptor }}.iso > regolith-${{ matrix.descriptor }}.md5sum
           zip regolith-${{ matrix.descriptor }}.zip regolith-${{ matrix.descriptor }}.iso regolith-${{ matrix.descriptor }}.md5sum
-      - name: Create Release
-        id: create_release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: regolith-${{ matrix.descriptor }}.zip
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tag_name: ${{ github.sha }}
-          release_name: Release ${{ github.sha }}
-          body: See regolith-desktop.com for released files
-      - name: Get timestamp
-        id: get_timestamp
-        run: echo "::set-output name=TIMESTAMP::$(date +%s)"
-      - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: regolith-${{ matrix.descriptor }}.zip
-          asset_name: regolith-${{ matrix.descriptor }}.zip
-          asset_content_type: application/zip
+      # You can add further steps here if needed, such as uploading to a file hosting service or deploying to a server.
