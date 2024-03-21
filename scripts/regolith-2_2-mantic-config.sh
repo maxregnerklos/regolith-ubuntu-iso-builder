@@ -103,17 +103,6 @@ function customize_image() {
         policykit-desktop-privileges \
         regolith-compositor-picom-glx \
         regolith-i3-swap-focus \
-        regolith-look-ayu \
-        regolith-look-ayu-dark \
-        regolith-look-ayu-mirage \
-        regolith-look-blackhole \
-        regolith-look-dracula \
-        regolith-look-gruvbox \
-        regolith-look-i3-default \
-        regolith-look-lascaille \
-        regolith-look-nevil \
-        regolith-look-nord \
-        regolith-look-solarized-dark \
         regolith-system-ubuntu \
         rfkill \
         rsyslog \
