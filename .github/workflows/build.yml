@@ -2,9 +2,10 @@ name: build
 
 on:
   workflow_dispatch:
-concurrency: 
-  group: ubuntu-iso-build
-  cancel-in-progress: true
+    concurrency:
+      group: ubuntu-iso-build
+      cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-22.04
@@ -25,7 +26,8 @@ jobs:
           cd ..
           mv scripts/Regolith.iso regolith-${{ matrix.descriptor }}.iso          
           echo ::set-output name=TIMESTAMP::"$(date +%Y%m%d_%H%M%S)"
-      compress:
+
+  compress:
     name: Compress and Release
     needs: build
     runs-on: ubuntu-latest
