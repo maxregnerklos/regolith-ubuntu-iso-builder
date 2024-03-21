@@ -134,26 +134,35 @@ function run_chroot() {
 }
 
 function build_iso() {
-    echo "=====> running build_iso ..."
+    echo "=====> Running build_iso ..."
 
+    # Ensure chroot/boot directory exists
+    if [ ! -d "chroot/boot" ]; then
+        echo "Error: chroot/boot directory does not exist."
+        exit 1
+    fi
+
+    # Ensure necessary files exist in chroot/boot directory
+    if [ ! -f "chroot/boot/vmlinuz-**-**-generic" ] || [ ! -f "chroot/boot/initrd.img-**-**-generic" ]; then
+        echo "Error: Kernel files (vmlinuz and initrd.img) not found in chroot/boot directory."
+        exit 1
+    fi
+
+    # Create directories for ISO
     rm -rf image
     mkdir -p image/{casper,isolinux,install}
 
-    # copy kernel files
+    # Copy kernel files
     sudo cp chroot/boot/vmlinuz-**-**-generic image/casper/vmlinuz
     sudo cp chroot/boot/initrd.img-**-**-generic image/casper/initrd
 
-    # memtest86
-    sudo cp chroot/boot/memtest86+.bin image/install/memtest86+
-
+    # Download and extract memtest86
     wget --progress=dot https://www.memtest86.com/downloads/memtest86-usb.zip -O image/install/memtest86-usb.zip
-    unzip -p image/install/memtest86-usb.zip memtest86-usb.img > image/install/memtest86
+    unzip -q -p image/install/memtest86-usb.zip memtest86-usb.img > image/install/memtest86
     rm -f image/install/memtest86-usb.zip
 
-    # grub
-    touch image/ubuntu
+    # Create GRUB configuration
     cat <<EOF > image/isolinux/grub.cfg
-
 search --set=root --file /ubuntu
 
 insmod all_video
@@ -189,14 +198,14 @@ menuentry "Test memory Memtest86 (UEFI, long load time)" {
 }
 EOF
 
-    # generate manifest
+    # Generate manifest
     sudo chroot chroot dpkg-query -W --showformat='${Package} ${Version}\n' | sudo tee image/casper/filesystem.manifest
     sudo cp -v image/casper/filesystem.manifest image/casper/filesystem.manifest-desktop
     for pkg in $TARGET_PACKAGE_REMOVE; do
         sudo sed -i "/$pkg/d" image/casper/filesystem.manifest-desktop
     done
 
-    # compress rootfs
+    # Compress rootfs
     sudo mksquashfs chroot image/casper/filesystem.squashfs \
         -noappend -no-duplicates -no-recovery \
         -wildcards \
@@ -208,7 +217,7 @@ EOF
         -e "swapfile"
     printf $(sudo du -sx --block-size=1 chroot | cut -f1) > image/casper/filesystem.size
 
-    # create diskdefines
+    # Create diskdefines
     cat <<EOF > image/README.diskdefines
 #define DISKNAME  ${GRUB_LIVEBOOT_LABEL}
 #define TYPE  binary
@@ -221,46 +230,51 @@ EOF
 #define TOTALNUM0  1
 EOF
 
-    # create iso image
-    pushd $DIR/image
+    # Create EFI boot image
     grub-mkstandalone \
         --format=x86_64-efi \
-        --output=isolinux/bootx64.efi \
+        --output=image/isolinux/bootx64.efi \
         --locales="" \
         --fonts="" \
-        "boot/grub/grub.cfg=isolinux/grub.cfg"
+        "boot/grub/grub.cfg=image/isolinux/grub.cfg"
 
     (
-        cd isolinux && \
+        cd image/isolinux && \
         dd if=/dev/zero of=efiboot.img bs=1M count=10 && \
         sudo mkfs.vfat efiboot.img && \
         LC_CTYPE=C mmd -i efiboot.img efi efi/boot && \
         LC_CTYPE=C mcopy -i efiboot.img ./bootx64.efi ::efi/boot/
     )
 
+    # Create BIOS boot image
     grub-mkstandalone \
         --format=i386-pc \
-        --output=isolinux/core.img \
+        --output=image/isolinux/core.img \
         --install-modules="linux16 linux normal iso9660 biosdisk memdisk search tar ls" \
         --modules="linux16 linux normal iso9660 biosdisk search" \
         --locales="" \
         --fonts="" \
-        "boot/grub/grub.cfg=isolinux/grub.cfg"
+        "boot/grub/grub.cfg=image/isolinux/grub.cfg"
 
-    cat /usr/lib/grub/i386-pc/cdboot.img isolinux/core.img > isolinux/bios.img
+    cat /usr/lib/grub/i386-pc/cdboot.img image/isolinux/core.img > image/isolinux/bios.img
 
-    sudo /bin/bash -c "(find . -type f -print0 | xargs -0 md5sum | grep -v -e 'md5sum.txt' -e 'bios.img' -e 'efiboot.img' > md5sum.txt)"
+    # Create md5sums
+    (
+        cd image && \
+        sudo find . -type f -print0 | sudo xargs -0 md5sum | grep -v -e 'md5sum.txt' -e 'bios.img' -e 'efiboot.img' > md5sum.txt
+    )
 
+    # Create ISO image
     sudo xorriso \
         -as mkisofs \
         -iso-level 3 \
         -full-iso9660-filenames \
         -volid "$TARGET_NAME" \
-        -eltorito-boot boot/grub/bios.img \
+        -eltorito-boot isolinux/bios.img \
         -no-emul-boot \
         -boot-load-size 4 \
         -boot-info-table \
-        --eltorito-catalog boot/grub/boot.cat \
+        --eltorito-catalog isolinux/boot.cat \
         --grub2-boot-info \
         --grub2-mbr /usr/lib/grub/i386-pc/boot_hybrid.img \
         -eltorito-alt-boot \
@@ -270,50 +284,7 @@ EOF
         -output "$DIR/$TARGET_NAME.iso" \
         -m "isolinux/efiboot.img" \
         -m "isolinux/bios.img" \
-        -graft-points \
-           "/EFI/efiboot.img=isolinux/efiboot.img" \
-           "/boot/grub/bios.img=isolinux/bios.img" \
-           "."
+        image
 
-    popd
+    echo "=====> build_iso completed successfully!"
 }
-
-# =============   main  ================
-
-# we always stay in $DIR
-cd $DIR
-
-load_config
-check_config
-check_host
-
-# check number of args
-if [[ $# == 0 || $# > 3 ]]; then help; fi
-
-# loop through args
-dash_flag=false
-start_index=0
-end_index=${#COMMANDS[*]}
-for ii in "$@";
-do
-    if [[ $ii == "-" ]]; then
-        dash_flag=true
-        continue
-    fi
-    find_index $ii
-    if [[ $dash_flag == false ]]; then
-        start_index=$index
-    else
-        end_index=$(($index+1))
-    fi
-done
-if [[ $dash_flag == false ]]; then
-    end_index=$(($start_index + 1))
-fi
-
-#loop through the commands
-for ((ii=$start_index; ii<$end_index; ii++)); do
-    ${COMMANDS[ii]}
-done
-
-echo "$0 - Initial build is done!"
