@@ -1,205 +1,182 @@
 #!/bin/bash
-# Rephrased code for building Ubuntu from scratch
 
-set -e                  # exit on error
-set -o pipefail         # exit on pipeline error
-set -u                  # treat unset variable as error
-#set -x
+# This script provides common customization options for the ISO
+#
+# Usage: Copy this file to config.sh and make changes there.  Keep this file (default_config.sh) as-is
+#   so that subsequent changes can be easily merged from upstream.  Keep all customiations in config.sh
 
-SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+# The brand name of the distribution
+export TARGET_DISTRO_NAME="Regolith"
 
-COMMANDS=(setup_host install_pkg finish_up)
+# The version of the distribution to be installed
+export TARGET_DISTRO_VERSION="2.1.0"
 
-function help() {
-    # if $1 is set, use $1 as headline message in help()
-    if [ -z ${1+x} ]; then
-        echo -e "This script builds Ubuntu from scratch"
-        echo -e
-    else
-        echo -e $1
-        echo
-    fi
-    echo -e "Supported commands : ${COMMANDS[*]}"
-    echo -e
-    echo -e "Syntax: $0 [start_cmd] [-] [end_cmd]"
-    echo -e "\trun from start_cmd to end_end"
-    echo -e "\tif start_cmd is omitted, start from first command"
-    echo -e "\tif end_cmd is omitted, end with last command"
-    echo -e "\tenter single cmd to run the specific command"
-    echo -e "\tenter '-' as only argument to run all commands"
-    echo -e
-    exit 0
-}
+# The version of Ubuntu to generate.  Successfully tested: bionic, cosmic, disco, eoan, jammy, groovy
+# See https://wiki.ubuntu.com/DevelopmentCodeNames for details
+export TARGET_UBUNTU_VERSION="mantic"
 
-function find_index() {
-    local ret;
-    local i;
-    for ((i=0; i<${#COMMANDS[*]}; i++)); do
-        if [ "${COMMANDS[i]}" == "$1" ]; then
-            index=$i;
-            return;
-        fi
-    done
-    help "Command not found : $1"
-}
+# The Ubuntu Mirror URL. It's better to change for faster download.
+# More mirrors see: https://launchpad.net/ubuntu/+archivemirrors
+export TARGET_UBUNTU_MIRROR="http://us.archive.ubuntu.com/ubuntu/"
 
-function check_host() {
-    if [ $(id -u) -ne 0 ]; then
-        echo "This script should be run as 'root'"
-        exit 1
-    fi
+# The packaged version of the Linux kernel to install on target image.
+# See https://wiki.ubuntu.com/Kernel/LTSEnablementStack for details
+export TARGET_KERNEL_PACKAGE="linux-generic"
 
-    export HOME=/root
-    export LC_ALL=C
-}
+# The file (no extension) of the ISO containing the generated disk image,
+# the volume id, and the hostname of the live environment are set from this name.
+export TARGET_NAME="${TARGET_DISTRO_NAME// /_}"
 
-function setup_host() {
-    echo "=====> running setup_host ..."
+# The text label shown in GRUB for booting into the live environment
+export GRUB_LIVEBOOT_LABEL="Try $TARGET_DISTRO_NAME"
 
-   cat <<EOF > /etc/apt/sources.list
-deb $TARGET_UBUNTU_MIRROR $TARGET_UBUNTU_VERSION main restricted universe multiverse
-deb-src $TARGET_UBUNTU_MIRROR $TARGET_UBUNTU_VERSION main restricted universe multiverse
+# The text label shown in GRUB for starting installation
+export GRUB_INSTALL_LABEL="Install $TARGET_DISTRO_NAME"
 
-deb $TARGET_UBUNTU_MIRROR $TARGET_UBUNTU_VERSION-security main restricted universe multiverse
-deb-src $TARGET_UBUNTU_MIRROR $TARGET_UBUNTU_VERSION-security main restricted universe multiverse
+# A link to a web page containing release notes associated with the installation
+# Selectable in the first page of the Ubiquity installer
+export RELEASE_NOTES_URL="https://regolith-desktop.com/docs/reference/Releases/regolith-2.0-release-notes/"
 
-deb $TARGET_UBUNTU_MIRROR $TARGET_UBUNTU_VERSION-updates main restricted universe multiverse
-deb-src $TARGET_UBUNTU_MIRROR $TARGET_UBUNTU_VERSION-updates main restricted universe multiverse
-EOF
+# Name and version of distribution
+export VERSIONED_DISTRO_NAME="$TARGET_DISTRO_NAME $TARGET_DISTRO_VERSION $TARGET_UBUNTU_VERSION"
 
-    echo "$TARGET_NAME" > /etc/hostname
-
-    # we need to install systemd first, to configure machine id
-    apt-get update
-    apt-get install -y libterm-readline-gnu-perl systemd-sysv
-
-    #configure machine id
-    dbus-uuidgen > /etc/machine-id
-    ln -fs /etc/machine-id /var/lib/dbus/machine-id
-
-    # don't understand why, but multiple sources indicate this
-    dpkg-divert --local --rename --add /sbin/initctl
-    ln -s /bin/true /sbin/initctl
-}
-
-# Load configuration values from file
-function load_config() {
-    if [[ -f "$SCRIPT_DIR/config.sh" ]]; then 
-        . "$SCRIPT_DIR/config.sh"
-    elif [[ -f "$SCRIPT_DIR/default_config.sh" ]]; then
-        . "$SCRIPT_DIR/default_config.sh"
-    else
-        >&2 echo "Unable to find default config file  $SCRIPT_DIR/default_config.sh, aborting."
-        exit 1
-    fi
-}
-
-
-function install_pkg() {
-    echo "=====> running install_pkg ... will take a long time ..."
-    apt-get -y upgrade
-
-    # install live packages
-    apt-get install -y \
-    sudo \
-    ubuntu-standard \
+# Packages to be removed from the target system after installation completes succesfully
+export TARGET_PACKAGE_REMOVE="
+    ubiquity \
     casper \
     discover \
     laptop-detect \
     os-prober \
-    network-manager \
-    resolvconf \
-    net-tools \
-    wireless-tools \
-    wpagui \
-    grub-common \
-    grub-gfxpayload-lists \
-    grub-pc \
-    grub-pc-bin \
-    grub2-common \
-    locales
-    
-    # install kernel
-    apt-get install -y --no-install-recommends $TARGET_KERNEL_PACKAGE
+    gnome-shell \
+    gdm3 \
+    ubuntu-session \
+    ubuntu-desktop \
+    budgie-core \
+    metacity \
+    snapd \
+"
 
-    # graphic installer - ubiquity
+# Package customisation function.  Update this function to customize packages
+# present on the installed system.
+function customize_image() {
+    apt update
+
+    apt install -y \
+        gpg \
+        wget \
+        software-properties-common
+
+    wget -qO - https://regolith-desktop.org/regolith.key | gpg --dearmor | sudo tee /usr/share/keyrings/regolith-archive-keyring.gpg
+    echo -e "\ndeb [arch=amd64 signed-by=/usr/share/keyrings/regolith-archive-keyring.gpg] https://regolith-desktop.org/release-ubuntu-jammy-amd64 jammy main" | sudo tee /etc/apt/sources.list.d/regolith.list
+
+    # Fix firefox ~ https://ubuntuhandbook.org/index.php/2022/04/install-firefox-deb-ubuntu-22-04/
+    apt-get purge -y firefox
+    add-apt-repository -y ppa:mozillateam/ppa
+    echo "Package: firefox*" > /etc/apt/preferences.d/mozillateamppa
+    echo "Pin: release o=LP-PPA-mozillateam" >> /etc/apt/preferences.d/mozillateamppa
+    echo "Pin-Priority: 501" >> /etc/apt/preferences.d/mozillateamppa
+    apt update
+
+    # install graphics and desktop
     apt-get install -y \
-    ubiquity \
-    ubiquity-casper \
-    ubiquity-frontend-gtk \
-    ubiquity-slideshow-ubuntu \
-    ubiquity-ubuntu-artwork
+        apt-transport-https \
+        apturl \
+        apturl-common \
+        avahi-autoipd \
+        dmz-cursor-theme \
+        eog \
+        file-roller \
+        firefox \
+        gnome-disk-utility \
+        gnome-font-viewer \
+        gnome-power-manager \
+        gnome-screenshot \
+        i3xrocks-app-launcher \
+        i3xrocks-battery \
+        i3xrocks-bluetooth \
+        i3xrocks-focused-window-name \
+        i3xrocks-info \
+        i3xrocks-memory \
+        i3xrocks-net-traffic \
+        i3xrocks-next-workspace \
+        i3xrocks-rofication \
+        i3xrocks-time \
+        i3xrocks-volume \
+        kerneloops \
+        language-pack-en \
+        language-pack-en-base \
+        language-pack-gnome-en \
+        language-pack-gnome-en-base \
+        less \
+        libnotify-bin \
+        memtest86+ \
+        metacity \
+        nautilus \
+        network-manager-openvpn \
+        network-manager-openvpn-gnome \
+        network-manager-pptp-gnome \
+        plymouth-theme-regolith-logo \
+        policykit-desktop-privileges \
+        regolith-compositor-picom-glx \
+        regolith-i3-swap-focus \
+        regolith-look-ayu \
+        regolith-look-ayu-dark \
+        regolith-look-ayu-mirage \
+        regolith-look-blackhole \
+        regolith-look-dracula \
+        regolith-look-gruvbox \
+        regolith-look-i3-default \
+        regolith-look-lascaille \
+        regolith-look-nevil \
+        regolith-look-nord \
+        regolith-look-solarized-dark \
+        regolith-system-ubuntu \
+        rfkill \
+        rsyslog \
+        shim-signed \
+        software-properties-gtk \
+        ssl-cert \
+        syslinux \
+        syslinux-common \
+        thermald \
+        ubiquity-slideshow-regolith \
+        ubuntu-release-upgrader-gtk \
+        update-notifier \
+        vim \
+        wbritish \
+        xcursor-themes \
+        xdg-user-dirs-gtk \
+        zip
 
-    # Call into config function
-    customize_image
+    # purge
+    apt-get purge -y \
+        aisleriot \
+        evolution-data-server \
+        evolution-data-server-common \
+        gdm3 \
+        gnome-mahjongg \
+        gnome-mines \
+        gnome-sudoku \
+        lightdm-gtk-greeter \
+        hitori \
+        plymouth-theme-spinner \
+        plymouth-theme-ubuntu-text \
+        transmission-common \
+        transmission-gtk \
+        ubuntu-desktop \
+        ubuntu-session \
+        snapd
 
-    # remove unused and clean up apt cache
     apt-get autoremove -y
 
-    # final touch
-    dpkg-reconfigure locales
-    dpkg-reconfigure systemd-resolved
+    # Set wallpaper for installer
+    cp /usr/share/backgrounds/pia21972.png /usr/share/backgrounds/warty-final-ubuntu.png
 
-    # network manager
-    cat <<EOF > /etc/NetworkManager/NetworkManager.conf
-[main]
-plugins=ifupdown,keyfile
-dns=dnsmasq
-
-[ifupdown]
-managed=false
-EOF
-
-    dpkg-reconfigure network-manager
-
-    apt-get clean -y
+    # Specify Regolith session for autologin
+    echo "[SeatDefaults]" >> /etc/lightdm/lightdm.conf.d/10_regolith.conf
+    echo "user-session=regolith" >> /etc/lightdm/lightdm.conf.d/10_regolith.conf
 }
 
-function finish_up() { 
-    echo "=====> finish_up"
-
-    # truncate machine id (why??)
-    truncate -s 0 /etc/machine-id
-
-    # remove diversion (why??)
-    rm /sbin/initctl
-    dpkg-divert --rename --remove /sbin/initctl
-
-    rm -rf /tmp/* ~/.bash_history
-}
-
-# =============   main  ================
-
-load_config
-check_host
-
-# check number of args
-if [[ $# == 0 || $# > 3 ]]; then help; fi
-
-# loop through args
-dash_flag=false
-start_index=0
-end_index=${#COMMANDS[*]}
-for ii in "$@";
-do
-    if [[ $ii == "-" ]]; then
-        dash_flag=true
-        continue
-    fi
-    find_index $ii
-    if [[ $dash_flag == false ]]; then
-        start_index=$index
-    else
-        end_index=$(($index+1))
-    fi
-done
-if [[ $dash_flag == false ]]; then
-    end_index=$(($start_index + 1))
-fi
-
-# loop through the commands
-for ((ii=$start_index; ii<$end_index; ii++)); do
-    ${COMMANDS[ii]}
-done
-
-echo "$0 - Initial build is done!"
+# Used to version the configuration.  If breaking changes occur, manual
+# updates to this file from the default may be necessary.
+export CONFIG_FILE_VERSION="0.4"
