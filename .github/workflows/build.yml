@@ -13,7 +13,7 @@ jobs:
         descriptor: ["ubuntu-kinetic-2.2.0"]
         include:
           - descriptor: "ubuntu-kinetic-2.2.0"
-            config-file: regolith-2_2-kinetic-config.sh
+            config-file: regolith-2_2-mantic-config.sh
     steps:
       - uses: actions/checkout@v3
       - name: Build ISO
