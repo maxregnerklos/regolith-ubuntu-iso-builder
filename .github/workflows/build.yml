@@ -1,20 +1,21 @@
-name: Build and Compress
+name: build
 
 on:
   workflow_dispatch:
-    concurrency:
-      group: ubuntu-iso-build
-      cancel-in-progress: true
-
+concurrency: 
+  group: ubuntu-iso-build
+  cancel-in-progress: true
 jobs:
   build:
     runs-on: ubuntu-22.04
     strategy:
       matrix:
-        descriptor: ["ubuntu-mantic-2.2.0"]
+        descriptor: ["ubuntu-kinetic-2.2.0"]
+        include:
+          - descriptor: "ubuntu-kinetic-2.2.0"
+            config-file: regolith-2_2-kinetic-config.sh
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
       - name: Build ISO
         id: build-iso
         run: |
@@ -22,18 +23,8 @@ jobs:
           mv ${{ matrix.config-file }} default_config.sh
           ./build.sh -
           cd ..
-          mv scripts/Regolith.iso regolith-${{ matrix.descriptor }}.iso
+          mv scripts/Regolith.iso regolith-${{ matrix.descriptor }}.iso          
           echo ::set-output name=TIMESTAMP::"$(date +%Y%m%d_%H%M%S)"
-          
-  compress:
-    needs: build
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        descriptor: [ubuntu, debian]
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
       - name: Compress files
         run: |
           md5sum regolith-${{ matrix.descriptor }}.iso > regolith-${{ matrix.descriptor }}.md5sum
