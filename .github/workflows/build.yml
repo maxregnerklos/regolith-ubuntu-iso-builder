@@ -12,9 +12,6 @@ jobs:
     strategy:
       matrix:
         descriptor: ["ubuntu-mantic-2.2.0"]
-    include:
-      - descriptor: "ubuntu-mantic-2.2.0"
-        config-file: regolith-2_2-mantic-config.sh
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -31,6 +28,9 @@ jobs:
   compress:
     needs: build
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        descriptor: [ubuntu, debian]
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -47,7 +47,6 @@ jobs:
           tag_name: ${{ github.sha }}
           release_name: Release ${{ github.sha }}
           body: See regolith-desktop.com for released files
-          repository: ${{ github.repository }}
       - name: Get timestamp
         id: get_timestamp
         run: echo "::set-output name=TIMESTAMP::$(date +%s)"
