@@ -9,11 +9,11 @@
 export TARGET_DISTRO_NAME="Regolith"
 
 # The version of the distribution to be installed
-export TARGET_DISTRO_VERSION="2.2.0"
+export TARGET_DISTRO_VERSION="2.1.0"
 
 # The version of Ubuntu to generate.  Successfully tested: bionic, cosmic, disco, eoan, jammy, groovy
 # See https://wiki.ubuntu.com/DevelopmentCodeNames for details
-export TARGET_UBUNTU_VERSION="kinetic"
+export TARGET_UBUNTU_VERSION="mantic"
 
 # The Ubuntu Mirror URL. It's better to change for faster download.
 # More mirrors see: https://launchpad.net/ubuntu/+archivemirrors
@@ -35,7 +35,7 @@ export GRUB_INSTALL_LABEL="Install $TARGET_DISTRO_NAME"
 
 # A link to a web page containing release notes associated with the installation
 # Selectable in the first page of the Ubiquity installer
-export RELEASE_NOTES_URL="https://regolith-desktop.com/docs/reference/Releases/regolith-2.2-release-notes/"
+export RELEASE_NOTES_URL="https://regolith-desktop.com/docs/reference/Releases/regolith-2.0-release-notes/"
 
 # Name and version of distribution
 export VERSIONED_DISTRO_NAME="$TARGET_DISTRO_NAME $TARGET_DISTRO_VERSION $TARGET_UBUNTU_VERSION"
@@ -67,7 +67,7 @@ function customize_image() {
         software-properties-common
 
     wget -qO - https://regolith-desktop.org/regolith.key | gpg --dearmor | sudo tee /usr/share/keyrings/regolith-archive-keyring.gpg
-    echo -e "\ndeb [arch=amd64 signed-by=/usr/share/keyrings/regolith-archive-keyring.gpg] https://regolith-desktop.org/release-ubuntu-kinetic-amd64 kinetic main" | sudo tee /etc/apt/sources.list.d/regolith.list
+    echo -e "\ndeb [arch=amd64 signed-by=/usr/share/keyrings/regolith-archive-keyring.gpg] https://regolith-desktop.org/release-ubuntu-jammy-amd64 jammy main" | sudo tee /etc/apt/sources.list.d/regolith.list
 
     # Fix firefox ~ https://ubuntuhandbook.org/index.php/2022/04/install-firefox-deb-ubuntu-22-04/
     apt-get purge -y firefox
@@ -79,6 +79,7 @@ function customize_image() {
 
     # install graphics and desktop
     apt-get install -y \
+        acpi-support \
         acpid \
         apt-transport-https \
         apturl \
@@ -124,7 +125,6 @@ function customize_image() {
         regolith-look-ayu-dark \
         regolith-look-ayu-mirage \
         regolith-look-blackhole \
-        regolith-look-default \
         regolith-look-dracula \
         regolith-look-gruvbox \
         regolith-look-i3-default \
@@ -140,7 +140,6 @@ function customize_image() {
         ssl-cert \
         syslinux \
         syslinux-common \
-        systemd-resolved \
         thermald \
         ubiquity-slideshow-regolith \
         ubuntu-release-upgrader-gtk \
@@ -178,8 +177,6 @@ function customize_image() {
     # Specify Regolith session for autologin
     echo "[SeatDefaults]" >> /etc/lightdm/lightdm.conf.d/10_regolith.conf
     echo "user-session=regolith" >> /etc/lightdm/lightdm.conf.d/10_regolith.conf
-
-    echo "--- Customization phase complete"    
 }
 
 # Used to version the configuration.  If breaking changes occur, manual
