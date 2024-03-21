@@ -7,8 +7,9 @@ on:
       cancel-in-progress: true
 
 jobs:
-  build:
-    runs-on: ubuntu-22.04
+  build_and_upload:
+    name: Build ISO and Upload
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         descriptor: ["ubuntu-kinetic-2.2.0"]
@@ -18,31 +19,13 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Build ISO
-        id: build-iso
         run: |
           cd scripts
           mv ${{ matrix.config-file }} default_config.sh
           ./build.sh -
           cd ..
-          mv scripts/Regolith.iso regolith-${{ matrix.descriptor }}.iso          
-          echo ::set-output name=TIMESTAMP::"$(date +%Y%m%d_%H%M%S)"
-
-  compress:
-    name: Compress and Release
-    needs: build
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        descriptor: [ubuntu, debian]
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-      - name: Download ISO artifact
-        uses: actions/download-artifact@v2
+      - name: Upload ISO artifact
+        uses: actions/upload-artifact@v2
         with:
           name: regolith-${{ matrix.descriptor }}.iso
-      - name: Compress files
-        run: |
-          md5sum regolith-${{ matrix.descriptor }}.iso > regolith-${{ matrix.descriptor }}.md5sum
-          zip regolith-${{ matrix.descriptor }}.zip regolith-${{ matrix.descriptor }}.iso regolith-${{ matrix.descriptor }}.md5sum
-      # You can add further steps here if needed, such as uploading to a file hosting service or deploying to a server.
+          path: scripts/Regolith.iso
