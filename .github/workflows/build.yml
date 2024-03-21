@@ -1,11 +1,10 @@
-name: Build and Release ISO
+name: build
 
 on:
   workflow_dispatch:
 concurrency: 
   group: ubuntu-iso-build
   cancel-in-progress: true
-
 jobs:
   build:
     runs-on: ubuntu-22.04
@@ -16,7 +15,8 @@ jobs:
           - descriptor: "ubuntu-mantic-2.2.0"
             config-file: regolith-2_2-mantic-config.sh
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
       - name: Build ISO
         id: build-iso
         run: |
@@ -26,32 +26,40 @@ jobs:
           cd ..
           mv scripts/Regolith.iso regolith-${{ matrix.descriptor }}.iso          
           echo ::set-output name=TIMESTAMP::"$(date +%Y%m%d_%H%M%S)"
-
-      - name: Compress and Release
-        runs-on: ubuntu-latest
-        steps:
-          - name: Checkout code
-            uses: actions/checkout@v2
-          - name: Compress files
-            run: |
-              md5sum regolith-${{ matrix.descriptor }}.iso > regolith-${{ matrix.descriptor }}.md5sum
-              zip regolith-${{ matrix.descriptor }}.zip regolith-${{ matrix.descriptor }}.iso regolith-${{ matrix.descriptor }}.md5sum
-          - name: Create Release
-            id: create_release
-            uses: softprops/action-gh-release@v1
-            with:
-              files: regolith-${{ matrix.descriptor }}.zip
-              token: ${{ secrets.GITHUB_TOKEN }}
-              tag_name: ${{ github.sha }}
-              release_name: Release ${{ github.sha }}
-              body: See regolith-desktop.com for released files
-          - name: Get timestamp
-            id: get_timestamp
-            run: echo "::set-output name=TIMESTAMP::$(date +%s)"
-          - name: Upload Release Asset
-            uses: actions/upload-release-asset@v1
-            with:
-              upload_url: ${{ steps.create_release.outputs.upload_url }}
-              asset_path: regolith-${{ matrix.descriptor }}.zip
-              asset_name: regolith-${{ matrix.descriptor }}.zip
-              asset_content_type: application/zip
+      - name: Compress
+        on: 
+          push:
+            branches:
+              - master
+        jobs:
+          build:
+            runs-on: ubuntu-latest
+            strategy:
+              matrix:
+                descriptor: [ubuntu, debian]
+            steps:
+              - name: Checkout code
+                uses: actions/checkout@v2
+              - name: Compress files
+                run: |
+                  md5sum regolith-${{ matrix.descriptor }}.iso > regolith-${{ matrix.descriptor }}.md5sum
+                  zip regolith-${{ matrix.descriptor }}.zip regolith-${{ matrix.descriptor }}.iso regolith-${{ matrix.descriptor }}.md5sum
+              - name: Create Release
+                id: create_release
+                uses: softprops/action-gh-release@v1
+                with:
+                  files: regolith-${{ matrix.descriptor }}.zip
+                  token: ${{ secrets.GITHUB_TOKEN }}
+                  tag_name: ${{ github.sha }}
+                  release_name: Release ${{ github.sha }}
+                  body: See regolith-desktop.com for released files
+              - name: Get timestamp
+                id: get_timestamp
+                run: echo "::set-output name=TIMESTAMP::$(date +%s)"
+              - name: Upload Release Asset
+                uses: actions/upload-release-asset@v1
+                with:
+                  upload_url: ${{ steps.create_release.outputs.upload_url }}
+                  asset_path: regolith-${{ matrix.descriptor }}.zip
+                  asset_name: regolith-${{ matrix.descriptor }}.zip
+                  asset_content_type: application/zip
