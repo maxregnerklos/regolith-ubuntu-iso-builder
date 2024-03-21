@@ -1,182 +1,319 @@
 #!/bin/bash
 
-# This script provides common customization options for the ISO
-#
-# Usage: Copy this file to config.sh and make changes there.  Keep this file (default_config.sh) as-is
-#   so that subsequent changes can be easily merged from upstream.  Keep all customiations in config.sh
+set -e                  # exit on error
+set -o pipefail         # exit on pipeline error
+set -u                  # treat unset variable as error
+#set -x
 
-# The brand name of the distribution
-export TARGET_DISTRO_NAME="Regolith"
+DIR="$(dirname "$(readlink -f "$0")")"
 
-# The version of the distribution to be installed
-export TARGET_DISTRO_VERSION="2.1.0"
+COMMANDS=(setup_host debootstrap run_chroot build_iso)
 
-# The version of Ubuntu to generate.  Successfully tested: bionic, cosmic, disco, eoan, jammy, groovy
-# See https://wiki.ubuntu.com/DevelopmentCodeNames for details
-export TARGET_UBUNTU_VERSION="mantic"
+DATE=`TZ="UTC" date +"%y%m%d-%H%M%S"`
 
-# The Ubuntu Mirror URL. It's better to change for faster download.
-# More mirrors see: https://launchpad.net/ubuntu/+archivemirrors
-export TARGET_UBUNTU_MIRROR="http://us.archive.ubuntu.com/ubuntu/"
-
-# The packaged version of the Linux kernel to install on target image.
-# See https://wiki.ubuntu.com/Kernel/LTSEnablementStack for details
-export TARGET_KERNEL_PACKAGE="linux-generic"
-
-# The file (no extension) of the ISO containing the generated disk image,
-# the volume id, and the hostname of the live environment are set from this name.
-export TARGET_NAME="${TARGET_DISTRO_NAME// /_}"
-
-# The text label shown in GRUB for booting into the live environment
-export GRUB_LIVEBOOT_LABEL="Try $TARGET_DISTRO_NAME"
-
-# The text label shown in GRUB for starting installation
-export GRUB_INSTALL_LABEL="Install $TARGET_DISTRO_NAME"
-
-# A link to a web page containing release notes associated with the installation
-# Selectable in the first page of the Ubiquity installer
-export RELEASE_NOTES_URL="https://regolith-desktop.com/docs/reference/Releases/regolith-2.0-release-notes/"
-
-# Name and version of distribution
-export VERSIONED_DISTRO_NAME="$TARGET_DISTRO_NAME $TARGET_DISTRO_VERSION $TARGET_UBUNTU_VERSION"
-
-# Packages to be removed from the target system after installation completes succesfully
-export TARGET_PACKAGE_REMOVE="
-    ubiquity \
-    casper \
-    discover \
-    laptop-detect \
-    os-prober \
-    gnome-shell \
-    gdm3 \
-    ubuntu-session \
-    ubuntu-desktop \
-    budgie-core \
-    metacity \
-    snapd \
-"
-
-# Package customisation function.  Update this function to customize packages
-# present on the installed system.
-function customize_image() {
-    apt update
-
-    apt install -y \
-        gpg \
-        wget \
-        software-properties-common
-
-    wget -qO - https://regolith-desktop.org/regolith.key | gpg --dearmor | sudo tee /usr/share/keyrings/regolith-archive-keyring.gpg
-    echo -e "\ndeb [arch=amd64 signed-by=/usr/share/keyrings/regolith-archive-keyring.gpg] https://regolith-desktop.org/release-ubuntu-jammy-amd64 jammy main" | sudo tee /etc/apt/sources.list.d/regolith.list
-
-    # Fix firefox ~ https://ubuntuhandbook.org/index.php/2022/04/install-firefox-deb-ubuntu-22-04/
-    apt-get purge -y firefox
-    add-apt-repository -y ppa:mozillateam/ppa
-    echo "Package: firefox*" > /etc/apt/preferences.d/mozillateamppa
-    echo "Pin: release o=LP-PPA-mozillateam" >> /etc/apt/preferences.d/mozillateamppa
-    echo "Pin-Priority: 501" >> /etc/apt/preferences.d/mozillateamppa
-    apt update
-
-    # install graphics and desktop
-    apt-get install -y \
-        apt-transport-https \
-        apturl \
-        apturl-common \
-        avahi-autoipd \
-        dmz-cursor-theme \
-        eog \
-        file-roller \
-        firefox \
-        gnome-disk-utility \
-        gnome-font-viewer \
-        gnome-power-manager \
-        gnome-screenshot \
-        i3xrocks-app-launcher \
-        i3xrocks-battery \
-        i3xrocks-bluetooth \
-        i3xrocks-focused-window-name \
-        i3xrocks-info \
-        i3xrocks-memory \
-        i3xrocks-net-traffic \
-        i3xrocks-next-workspace \
-        i3xrocks-rofication \
-        i3xrocks-time \
-        i3xrocks-volume \
-        kerneloops \
-        language-pack-en \
-        language-pack-en-base \
-        language-pack-gnome-en \
-        language-pack-gnome-en-base \
-        less \
-        libnotify-bin \
-        memtest86+ \
-        metacity \
-        nautilus \
-        network-manager-openvpn \
-        network-manager-openvpn-gnome \
-        network-manager-pptp-gnome \
-        plymouth-theme-regolith-logo \
-        policykit-desktop-privileges \
-        regolith-compositor-picom-glx \
-        regolith-i3-swap-focus \
-        regolith-look-ayu \
-        regolith-look-ayu-dark \
-        regolith-look-ayu-mirage \
-        regolith-look-blackhole \
-        regolith-look-dracula \
-        regolith-look-gruvbox \
-        regolith-look-i3-default \
-        regolith-look-lascaille \
-        regolith-look-nevil \
-        regolith-look-nord \
-        regolith-look-solarized-dark \
-        regolith-system-ubuntu \
-        rfkill \
-        rsyslog \
-        shim-signed \
-        software-properties-gtk \
-        ssl-cert \
-        syslinux \
-        syslinux-common \
-        thermald \
-        ubiquity-slideshow-regolith \
-        ubuntu-release-upgrader-gtk \
-        update-notifier \
-        vim \
-        wbritish \
-        xcursor-themes \
-        xdg-user-dirs-gtk \
-        zip
-
-    # purge
-    apt-get purge -y \
-        aisleriot \
-        evolution-data-server \
-        evolution-data-server-common \
-        gdm3 \
-        gnome-mahjongg \
-        gnome-mines \
-        gnome-sudoku \
-        lightdm-gtk-greeter \
-        hitori \
-        plymouth-theme-spinner \
-        plymouth-theme-ubuntu-text \
-        transmission-common \
-        transmission-gtk \
-        ubuntu-desktop \
-        ubuntu-session \
-        snapd
-
-    apt-get autoremove -y
-
-    # Set wallpaper for installer
-    cp /usr/share/backgrounds/pia21972.png /usr/share/backgrounds/warty-final-ubuntu.png
-
-    # Specify Regolith session for autologin
-    echo "[SeatDefaults]" >> /etc/lightdm/lightdm.conf.d/10_regolith.conf
-    echo "user-session=regolith" >> /etc/lightdm/lightdm.conf.d/10_regolith.conf
+function help() {
+    # if $1 is set, use $1 as headline message in help()
+    if [ -z ${1+x} ]; then
+        echo -e "This script builds a bootable ubuntu-bsd ISO image"
+        echo -e
+    else
+        echo -e $1
+        echo
+    fi
+    echo -e "Supported commands : ${COMMANDS[*]}"
+    echo -e
+    echo -e "Syntax: $0 [start_cmd] [-] [end_cmd]"
+    echo -e "\trun from start_cmd to end_end"
+    echo -e "\tif start_cmd is omitted, start from first command"
+    echo -e "\tif end_cmd is omitted, end with last command"
+    echo -e "\tenter single cmd to run the specific command"
+    echo -e "\tenter '-' as only argument to run all commands"
+    echo -e
+    exit 0
 }
 
-# Used to version the configuration.  If breaking changes occur, manual
-# updates to this file from the default may be necessary.
-export CONFIG_FILE_VERSION="0.4"
+function find_index() {
+    local ret;
+    local i;
+    for ((i=0; i<${#COMMANDS[*]}; i++)); do
+        if [ "${COMMANDS[i]}" == "$1" ]; then
+            index=$i;
+            return;
+        fi
+    done
+    help "Command not found : $1"
+}
+
+function enter_setup() {
+    sudo mount --bind /dev chroot/dev
+    sudo mount --bind /run chroot/run
+    sudo chroot chroot mount none -t proc /proc
+    sudo chroot chroot mount none -t sysfs /sys
+    sudo chroot chroot mount none -t devpts /dev/pts
+}
+
+function exit_teardown() {
+    sudo chroot chroot umount /proc
+    sudo chroot chroot umount /sys
+    sudo chroot chroot umount /dev/pts
+    sudo umount chroot/dev
+    sudo umount chroot/run
+}
+
+function check_host() {
+    local os_ver
+    os_ver=`lsb_release -i | grep -E "(Ubuntu|Debian)"`
+    if [[ -z "$os_ver" ]]; then
+        echo "WARNING : OS is not Debian or Ubuntu and is untested"
+    fi
+
+    if [ $(id -u) -eq 0 ]; then
+        echo "This script should not be run as 'root'"
+        exit 1
+    fi
+}
+
+# Load configuration values from file
+function load_config() {
+    if [[ -f "$DIR/config.sh" ]]; then
+        . "$DIR/config.sh"
+    elif [[ -f "$DIR/default_config.sh" ]]; then
+        . "$DIR/default_config.sh"
+    else
+        >&2 echo "Unable to find default config file  $DIR/default_config.sh, aborting."
+        exit 1
+    fi
+}
+
+# Verify that necessary configuration values are set and they are valid
+function check_config() {
+    local expected_config_version
+    expected_config_version="0.4"
+
+    if [[ "$CONFIG_FILE_VERSION" != "$expected_config_version" ]]; then
+        >&2 echo "Invalid or old config version $CONFIG_FILE_VERSION, expected $expected_config_version. Please update your configuration file from the default."
+        exit 1
+    fi
+}
+
+function setup_host() {
+    echo "=====> running setup_host ..."
+    sudo apt update
+    sudo apt install -y binutils debootstrap squashfs-tools xorriso grub-pc-bin grub-efi-amd64-bin mtools dosfstools unzip
+    sudo mkdir -p chroot
+}
+
+function debootstrap() {
+    echo "=====> running debootstrap ... will take a couple of minutes ..."
+    sudo debootstrap  --arch=amd64 --variant=minbase $TARGET_UBUNTU_VERSION chroot $TARGET_UBUNTU_MIRROR
+}
+
+function run_chroot() {
+    echo "=====> running run_chroot ..."
+
+    enter_setup
+
+    # Setup build scripts in chroot environment
+    sudo ln -f $DIR/chroot_build.sh chroot/root/chroot_build.sh
+    sudo ln -f $DIR/default_config.sh chroot/root/default_config.sh
+    if [[ -f "$DIR/config.sh" ]]; then
+        sudo ln -f $DIR/config.sh chroot/root/config.sh
+    fi
+
+    # Launch into chroot environment to build install image.
+    sudo chroot chroot /usr/bin/env DEBIAN_FRONTEND=${DEBIAN_FRONTEND:-readline} /root/chroot_build.sh -
+
+    # Cleanup after image changes
+    sudo rm -f chroot/root/chroot_build.sh
+    sudo rm -f chroot/root/default_config.sh
+    if [[ -f "chroot/root/config.sh" ]]; then
+        sudo rm -f chroot/root/config.sh
+    fi
+
+    exit_teardown
+}
+
+function build_iso() {
+    echo "=====> running build_iso ..."
+
+    rm -rf image
+    mkdir -p image/{casper,isolinux,install}
+
+    # copy kernel files
+    sudo cp chroot/boot/vmlinuz-**-**-generic image/casper/vmlinuz
+    sudo cp chroot/boot/initrd.img-**-**-generic image/casper/initrd
+
+    # memtest86
+    sudo cp chroot/boot/memtest86+.bin image/install/memtest86+
+
+    wget --progress=dot https://www.memtest86.com/downloads/memtest86-usb.zip -O image/install/memtest86-usb.zip
+    unzip -p image/install/memtest86-usb.zip memtest86-usb.img > image/install/memtest86
+    rm -f image/install/memtest86-usb.zip
+
+    # grub
+    touch image/ubuntu
+    cat <<EOF > image/isolinux/grub.cfg
+
+search --set=root --file /ubuntu
+
+insmod all_video
+
+set default="0"
+set timeout=30
+
+menuentry "${GRUB_LIVEBOOT_LABEL}" {
+   linux /casper/vmlinuz boot=casper nopersistent toram quiet splash ---
+   initrd /casper/initrd
+}
+
+menuentry "${GRUB_INSTALL_LABEL}" {
+   linux /casper/vmlinuz boot=casper only-ubiquity quiet splash ---
+   initrd /casper/initrd
+}
+
+menuentry "Check disc for defects" {
+   linux /casper/vmlinuz boot=casper integrity-check quiet splash ---
+   initrd /casper/initrd
+}
+
+menuentry "Test memory Memtest86+ (BIOS)" {
+   linux16 /install/memtest86+
+}
+
+menuentry "Test memory Memtest86 (UEFI, long load time)" {
+   insmod part_gpt
+   insmod search_fs_uuid
+   insmod chain
+   loopback loop /install/memtest86
+   chainloader (loop,gpt1)/efi/boot/BOOTX64.efi
+}
+EOF
+
+    # generate manifest
+    sudo chroot chroot dpkg-query -W --showformat='${Package} ${Version}\n' | sudo tee image/casper/filesystem.manifest
+    sudo cp -v image/casper/filesystem.manifest image/casper/filesystem.manifest-desktop
+    for pkg in $TARGET_PACKAGE_REMOVE; do
+        sudo sed -i "/$pkg/d" image/casper/filesystem.manifest-desktop
+    done
+
+    # compress rootfs
+    sudo mksquashfs chroot image/casper/filesystem.squashfs \
+        -noappend -no-duplicates -no-recovery \
+        -wildcards \
+        -e "var/cache/apt/archives/*" \
+        -e "root/*" \
+        -e "root/.*" \
+        -e "tmp/*" \
+        -e "tmp/.*" \
+        -e "swapfile"
+    printf $(sudo du -sx --block-size=1 chroot | cut -f1) > image/casper/filesystem.size
+
+    # create diskdefines
+    cat <<EOF > image/README.diskdefines
+#define DISKNAME  ${GRUB_LIVEBOOT_LABEL}
+#define TYPE  binary
+#define TYPEbinary  1
+#define ARCH  amd64
+#define ARCHamd64  1
+#define DISKNUM  1
+#define DISKNUM1  1
+#define TOTALNUM  0
+#define TOTALNUM0  1
+EOF
+
+    # create iso image
+    pushd $DIR/image
+    grub-mkstandalone \
+        --format=x86_64-efi \
+        --output=isolinux/bootx64.efi \
+        --locales="" \
+        --fonts="" \
+        "boot/grub/grub.cfg=isolinux/grub.cfg"
+
+    (
+        cd isolinux && \
+        dd if=/dev/zero of=efiboot.img bs=1M count=10 && \
+        sudo mkfs.vfat efiboot.img && \
+        LC_CTYPE=C mmd -i efiboot.img efi efi/boot && \
+        LC_CTYPE=C mcopy -i efiboot.img ./bootx64.efi ::efi/boot/
+    )
+
+    grub-mkstandalone \
+        --format=i386-pc \
+        --output=isolinux/core.img \
+        --install-modules="linux16 linux normal iso9660 biosdisk memdisk search tar ls" \
+        --modules="linux16 linux normal iso9660 biosdisk search" \
+        --locales="" \
+        --fonts="" \
+        "boot/grub/grub.cfg=isolinux/grub.cfg"
+
+    cat /usr/lib/grub/i386-pc/cdboot.img isolinux/core.img > isolinux/bios.img
+
+    sudo /bin/bash -c "(find . -type f -print0 | xargs -0 md5sum | grep -v -e 'md5sum.txt' -e 'bios.img' -e 'efiboot.img' > md5sum.txt)"
+
+    sudo xorriso \
+        -as mkisofs \
+        -iso-level 3 \
+        -full-iso9660-filenames \
+        -volid "$TARGET_NAME" \
+        -eltorito-boot boot/grub/bios.img \
+        -no-emul-boot \
+        -boot-load-size 4 \
+        -boot-info-table \
+        --eltorito-catalog boot/grub/boot.cat \
+        --grub2-boot-info \
+        --grub2-mbr /usr/lib/grub/i386-pc/boot_hybrid.img \
+        -eltorito-alt-boot \
+        -e EFI/efiboot.img \
+        -no-emul-boot \
+        -append_partition 2 0xef isolinux/efiboot.img \
+        -output "$DIR/$TARGET_NAME.iso" \
+        -m "isolinux/efiboot.img" \
+        -m "isolinux/bios.img" \
+        -graft-points \
+           "/EFI/efiboot.img=isolinux/efiboot.img" \
+           "/boot/grub/bios.img=isolinux/bios.img" \
+           "."
+
+    popd
+}
+
+# =============   main  ================
+
+# we always stay in $DIR
+cd $DIR
+
+load_config
+check_config
+check_host
+
+# check number of args
+if [[ $# == 0 || $# > 3 ]]; then help; fi
+
+# loop through args
+dash_flag=false
+start_index=0
+end_index=${#COMMANDS[*]}
+for ii in "$@";
+do
+    if [[ $ii == "-" ]]; then
+        dash_flag=true
+        continue
+    fi
+    find_index $ii
+    if [[ $dash_flag == false ]]; then
+        start_index=$index
+    else
+        end_index=$(($index+1))
+    fi
+done
+if [[ $dash_flag == false ]]; then
+    end_index=$(($start_index + 1))
+fi
+
+#loop through the commands
+for ((ii=$start_index; ii<$end_index; ii++)); do
+    ${COMMANDS[ii]}
+done
+
+echo "$0 - Initial build is done!"
