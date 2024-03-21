@@ -1,9 +1,12 @@
+Your script seems to be missing the closing brace `}` for the `customize_image` function. Let's add it at the end of the script:
+
+```bash
 #!/bin/bash
 
 # This script provides common customization options for the ISO
 #
 # Usage: Copy this file to config.sh and make changes there.  Keep this file (default_config.sh) as-is
-#   so that subsequent changes can be easily merged from upstream.  Keep all customiations in config.sh
+#   so that subsequent changes can be easily merged from upstream.  Keep all customizations in config.sh
 
 # The brand name of the distribution
 export TARGET_DISTRO_NAME="Regolith"
@@ -40,7 +43,7 @@ export RELEASE_NOTES_URL="https://regolith-desktop.com/docs/reference/Releases/r
 # Name and version of distribution
 export VERSIONED_DISTRO_NAME="$TARGET_DISTRO_NAME $TARGET_DISTRO_VERSION $TARGET_UBUNTU_VERSION"
 
-# Packages to be removed from the target system after installation completes succesfully
+# Packages to be removed from the target system after installation completes successfully
 export TARGET_PACKAGE_REMOVE="
     ubiquity \
     casper \
@@ -181,3 +184,7 @@ echo "user-session=regolith" >> /etc/lightdm/lightdm.conf.d/10_regolith.conf
 
 # Export configuration version
 export CONFIG_FILE_VERSION="0.4"
+}
+
+# Call the customize_image function
+customize_image
