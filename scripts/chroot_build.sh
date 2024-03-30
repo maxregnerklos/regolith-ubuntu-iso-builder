@@ -8,6 +8,18 @@ set -u                  # treat unset variable as error
 # Set script directory
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
+# Load configuration values
+function load_config() {
+    if [[ -f "$SCRIPT_DIR/config.sh" ]]; then 
+        . "$SCRIPT_DIR/config.sh"
+    elif [[ -f "$SCRIPT_DIR/default_config.sh" ]]; then
+        . "$SCRIPT_DIR/default_config.sh"
+    else
+        >&2 echo "Unable to find default config file  $SCRIPT_DIR/default_config.sh, aborting."
+        exit 1
+    fi
+}
+
 # Define commands
 COMMANDS=(setup_host install_pkg customize_image finish_up)
 
@@ -134,7 +146,95 @@ EOF
 function customize_image() {
     echo "=====> running customize_image ..."
 
-    # Customization steps go here
+    apt update
+
+    apt install -y \
+        gpg \
+        wget \
+        software-properties-common
+
+    wget -qO - https://regolith-desktop.org/regolith.key | gpg --dearmor | sudo tee /usr/share/keyrings/regolith-archive-keyring.gpg
+    echo -e "\ndeb [arch=amd64 signed-by=/usr/share/keyrings/regolith-archive-keyring.gpg] https://regolith-desktop.org/release-ubuntu-jammy-amd64 jammy main" | sudo tee /etc/apt/sources.list.d/regolith.list
+
+    # Fix firefox ~ https://ubuntuhandbook.org/index.php/2022/04/install-firefox-deb-ubuntu-22-04/
+    apt-get purge -y firefox
+    add-apt-repository -y ppa:mozillateam/ppa
+    echo "Package: firefox*" > /etc/apt/preferences.d/mozillateamppa
+    echo "Pin: release o=LP-PPA-mozillateam" >> /etc/apt/preferences.d/mozillateamppa
+    echo "Pin-Priority: 501" >> /etc/apt/preferences.d/mozillateamppa
+    apt update
+
+    # install graphics and desktop
+    apt-get install -y \
+        apt-transport-https \
+        apturl \
+        apturl-common \
+        avahi-autoipd \
+        dmz-cursor-theme \
+        eog \
+        file-roller \
+        firefox \
+        gnome-disk-utility \
+        gnome-font-viewer \
+        gnome-power-manager \
+        gnome-screenshot \
+        less \
+        libnotify-bin \
+        memtest86+ \
+        metacity \
+        nautilus \
+        network-manager-openvpn \
+        network-manager-openvpn-gnome \
+        network-manager-pptp-gnome \
+        plymouth-theme-regolith-logo \
+        policykit-desktop-privileges \
+        regolith-compositor-picom-glx \
+        regolith-i3-swap-focus \
+        regolith-system-ubuntu \
+        rfkill \
+        rsyslog \
+        shim-signed \
+        software-properties-gtk \
+        ssl-cert \
+        syslinux \
+        syslinux-common \
+        thermald \
+        ubiquity-slideshow-regolith \
+        ubuntu-release-upgrader-gtk \
+        update-notifier \
+        vim \
+        wbritish \
+        xcursor-themes \
+        xdg-user-dirs-gtk \
+        zip
+
+    # purge
+    apt-get purge -y \
+        aisleriot \
+        evolution-data-server \
+        evolution-data-server-common \
+        gdm3 \
+        gnome-mahjongg \
+        gnome-mines \
+        gnome-sudoku \
+        lightdm-gtk-greeter \
+        hitori \
+        plymouth-theme-spinner \
+        plymouth-theme-ubuntu-text \
+        transmission-common \
+        transmission-gtk \
+        ubuntu-desktop \
+        ubuntu-session \
+        snapd
+
+    apt-get autoremove -y
+
+    # Set wallpaper for installer
+    cp /usr/share/backgrounds/pia21972.png /usr/share/backgrounds/warty-final-ubuntu.png
+
+    # Specify Regolith session for autologin
+    echo "[SeatDefaults]" >> /etc/lightdm/lightdm.conf.d/10_regolith.conf
+    echo "user-session=regolith" >> /etc/lightdm/lightdm.conf.d/10_regolith.conf
 }
 
 # Function to perform finishing tasks
@@ -147,18 +247,6 @@ function finish_up() {
     dpkg-divert --rename --remove /sbin/initctl
 
     rm -rf /tmp/* ~/.bash_history
-}
-
-# Load configuration values
-function load_config() {
-    if [[ -f "$SCRIPT_DIR/config.sh" ]]; then 
-        . "$SCRIPT_DIR/config.sh"
-    elif [[ -f "$SCRIPT_DIR/default_config.sh" ]]; then
-        . "$SCRIPT_DIR/default_config.sh"
-    else
-        >&2 echo "Unable to find default config file  $SCRIPT_DIR/default_config.sh, aborting."
-        exit 1
-    fi
 }
 
 # Main execution starts here
