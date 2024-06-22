@@ -6,7 +6,7 @@
 #   so that subsequent changes can be easily merged from upstream.  Keep all customiations in config.sh
 
 # The brand name of the distribution
-export TARGET_DISTRO_NAME="Regolith"
+export TARGET_DISTRO_NAME="HarmonyOS"
 
 # The version of the distribution to be installed
 export TARGET_DISTRO_VERSION="2.1.0"
@@ -35,7 +35,7 @@ export GRUB_INSTALL_LABEL="Install $TARGET_DISTRO_NAME"
 
 # A link to a web page containing release notes associated with the installation
 # Selectable in the first page of the Ubiquity installer
-export RELEASE_NOTES_URL="https://regolith-desktop.com/docs/reference/Releases/regolith-2.0-release-notes/"
+export RELEASE_NOTES_URL="https://harmonyos.org/docs/reference/Releases/harmonyos-2.0-release-notes/"
 
 # Name and version of distribution
 export VERSIONED_DISTRO_NAME="$TARGET_DISTRO_NAME $TARGET_DISTRO_VERSION $TARGET_UBUNTU_VERSION"
@@ -66,8 +66,8 @@ function customize_image() {
         wget \
         software-properties-common
 
-    wget -qO - https://regolith-desktop.org/regolith.key | gpg --dearmor | sudo tee /usr/share/keyrings/regolith-archive-keyring.gpg
-    echo -e "\ndeb [arch=amd64 signed-by=/usr/share/keyrings/regolith-archive-keyring.gpg] https://regolith-desktop.org/release-ubuntu-jammy-amd64 jammy main" | sudo tee /etc/apt/sources.list.d/regolith.list
+    wget -qO - https://harmonyos.org/harmony.key | gpg --dearmor | sudo tee /usr/share/keyrings/harmonyos-archive-keyring.gpg
+    echo -e "\ndeb [arch=amd64 signed-by=/usr/share/keyrings/harmonyos-archive-keyring.gpg] https://harmonyos.org/release-ubuntu-jammy-amd64 jammy main" | sudo tee /etc/apt/sources.list.d/harmonyos.list
 
     # Fix firefox ~ https://ubuntuhandbook.org/index.php/2022/04/install-firefox-deb-ubuntu-22-04/
     apt-get purge -y firefox
@@ -106,9 +106,9 @@ function customize_image() {
         network-manager-openvpn \
         network-manager-openvpn-gnome \
         network-manager-pptp-gnome \
-        plymouth-theme-regolith-logo \
+        plymouth-theme-harmony-logo \
         policykit-desktop-privileges \
-        regolith-system-ubuntu \
+        harmonyos-system-ubuntu \
         rfkill \
         rsyslog \
         shim-signed \
@@ -117,7 +117,7 @@ function customize_image() {
         syslinux \
         syslinux-common \
         thermald \
-        ubiquity-slideshow-regolith \
+        ubiquity-slideshow-harmonyos \
         ubuntu-release-upgrader-gtk \
         update-notifier \
         vim \
@@ -150,9 +150,9 @@ function customize_image() {
     # Set wallpaper for installer
     cp /usr/share/backgrounds/pia21972.png /usr/share/backgrounds/warty-final-ubuntu.png
 
-    # Specify Regolith session for autologin
-    echo "[SeatDefaults]" >> /etc/lightdm/lightdm.conf.d/10_regolith.conf
-    echo "user-session=regolith" >> /etc/lightdm/lightdm.conf.d/10_regolith.conf
+    # Specify HarmonyOS session for autologin
+    echo "[SeatDefaults]" >> /etc/lightdm/lightdm.conf.d/10_harmonyos.conf
+    echo "user-session=harmonyos" >> /etc/lightdm/lightdm.conf.d/10_harmonyos.conf
 }
 
 # Used to version the configuration.  If breaking changes occur, manual
