@@ -1,5 +1,5 @@
 #!/bin/bash
-# Concept OS build script based on Ubuntu 25.04
+# HarmonyOS build script based on Ubuntu 25.04
 
 set -e                  # exit on error
 set -o pipefail         # exit on pipeline error
@@ -25,7 +25,7 @@ COMMANDS=(setup_host install_pkg customize_image finish_up)
 
 # Help function
 function help() {
-    echo -e "This script builds a concept OS based on Ubuntu 25.04"
+    echo -e "This script builds HarmonyOS based on Ubuntu 25.04"
     echo -e
     echo -e "Supported commands: ${COMMANDS[*]}"
     echo -e
@@ -78,7 +78,7 @@ deb http://archive.ubuntu.com/ubuntu/ focal-updates main restricted universe mul
 deb-src http://archive.ubuntu.com/ubuntu/ focal-updates main restricted universe multiverse
 EOF
 
-    echo "ConceptOS" > /etc/hostname
+    echo "HarmonyOS" > /etc/hostname
 
     apt-get update
     apt-get install -y systemd-sysv dbus
@@ -153,8 +153,8 @@ function customize_image() {
         wget \
         software-properties-common
 
-    wget -qO - https://regolith-desktop.org/regolith.key | gpg --dearmor | sudo tee /usr/share/keyrings/regolith-archive-keyring.gpg
-    echo -e "\ndeb [arch=amd64 signed-by=/usr/share/keyrings/regolith-archive-keyring.gpg] https://regolith-desktop.org/release-ubuntu-jammy-amd64 jammy main" | sudo tee /etc/apt/sources.list.d/regolith.list
+    wget -qO - https://harmonyos.org/harmony.key | gpg --dearmor | sudo tee /usr/share/keyrings/harmonyos-archive-keyring.gpg
+    echo -e "\ndeb [arch=amd64 signed-by=/usr/share/keyrings/harmonyos-archive-keyring.gpg] https://harmonyos.org/release-ubuntu-jammy-amd64 jammy main" | sudo tee /etc/apt/sources.list.d/harmonyos.list
 
     # Fix firefox ~ https://ubuntuhandbook.org/index.php/2022/04/install-firefox-deb-ubuntu-22-04/
     apt-get purge -y firefox
@@ -186,11 +186,11 @@ function customize_image() {
         network-manager-openvpn \
         network-manager-openvpn-gnome \
         network-manager-pptp-gnome \
-        plymouth-theme-regolith-logo \
+        plymouth-theme-harmony-logo \
         policykit-desktop-privileges \
-        regolith-compositor-picom-glx \
-        regolith-i3-swap-focus \
-        regolith-system-ubuntu \
+        harmonyos-compositor-picom-glx \
+        harmonyos-i3-swap-focus \
+        harmonyos-system-ubuntu \
         rfkill \
         rsyslog \
         shim-signed \
@@ -199,7 +199,7 @@ function customize_image() {
         syslinux \
         syslinux-common \
         thermald \
-        ubiquity-slideshow-regolith \
+        ubiquity-slideshow-harmonyos \
         ubuntu-release-upgrader-gtk \
         update-notifier \
         vim \
@@ -232,9 +232,9 @@ function customize_image() {
     # Set wallpaper for installer
     cp /usr/share/backgrounds/pia21972.png /usr/share/backgrounds/warty-final-ubuntu.png
 
-    # Specify Regolith session for autologin
-    echo "[SeatDefaults]" >> /etc/lightdm/lightdm.conf.d/10_regolith.conf
-    echo "user-session=regolith" >> /etc/lightdm/lightdm.conf.d/10_regolith.conf
+    # Specify HarmonyOS session for autologin
+    echo "[SeatDefaults]" >> /etc/lightdm/lightdm.conf.d/10_harmonyos.conf
+    echo "user-session=harmonyos" >> /etc/lightdm/lightdm.conf.d/10_harmonyos.conf
 }
 
 # Function to perform finishing tasks
