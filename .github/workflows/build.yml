@@ -1,9 +1,9 @@
-name: build
+name: Build and Upload HarmonyOS ISO
 
 on:
   workflow_dispatch:
     concurrency:
-      group: ubuntu-iso-build
+      group: harmonyos-iso-build
       cancel-in-progress: true
 
 jobs:
@@ -15,7 +15,7 @@ jobs:
         descriptor: ["ubuntu-kinetic-2.2.0"]
         include:
           - descriptor: "ubuntu-kinetic-2.2.0"
-            config-file: regolith-2_2-mantic-config.sh
+            config-file: harmonyos-2_2-mantic-config.sh
     steps:
       - uses: actions/checkout@v3
       - name: Build ISO
@@ -27,5 +27,5 @@ jobs:
       - name: Upload ISO artifact
         uses: actions/upload-artifact@v2
         with:
-          name: regolith-${{ matrix.descriptor }}.iso
-          path: scripts/Regolith.iso
+          name: harmonyos-${{ matrix.descriptor }}.iso
+          path: scripts/HarmonyOS.iso
